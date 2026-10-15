@@ -60,7 +60,7 @@ diff --git a/test/features/voice/presentation/widgets/pip/voice_pip_layer_test.d
        addTearDown(takeVoicePipSkipPhoneEnter);
        tester.view.physicalSize = const Size(400, 800);
        tester.view.devicePixelRatio = 1;
-@@ -309,10 +355,31 @@
+@@ -309,10 +355,32 @@
          expect(restored.height, closeTo(lastFlight.height, 2));
        }
      });
@@ -68,6 +68,7 @@ diff --git a/test/features/voice/presentation/widgets/pip/voice_pip_layer_test.d
 -}
 -
 -class _MutableRoute extends RouteStateNotifier {
++
 +    testWidgets('consecutive PiP expansion and collapse cycles stay usable', (
 +      tester,
 +    ) async {
