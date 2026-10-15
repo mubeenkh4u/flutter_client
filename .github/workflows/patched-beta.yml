@@ -19,8 +19,9 @@ permissions:
 
 concurrency:
   group: patched-validation-${{ github.ref }}
-  # Finish each pinned validation despite later edits to inactive patch files.
-  cancel-in-progress: false
+  # Only the newest patchset revision needs branch validation.
+  # Tagged release validation has its own ref, so it is not interrupted.
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -94,6 +95,13 @@ jobs:
             test/features/ui/voice/voice_channel_control_panel_settings_test.dart \
             test/features/voice/services/voice_settings_applicator_test.dart \
             test/features/voice/utils/voice_visual_fallback_test.dart
+
+      - name: Voice join and message sound teardown regression tests
+        working-directory: source
+        run: |
+          flutter test --reporter failures-only \
+            test/features/voice/utils/voice_connection_actions_test.dart \
+            test/core/providers/fluxer_sfx_provider_test.dart
 
       - name: Complete Flutter test suite
         working-directory: source
