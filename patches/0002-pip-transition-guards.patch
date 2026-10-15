@@ -1,0 +1,59 @@
+diff --git a/lib/features/voice/presentation/widgets/pip/voice_pip_layer.dart b/lib/features/voice/presentation/widgets/pip/voice_pip_layer.dart
+--- a/lib/features/voice/presentation/widgets/pip/voice_pip_layer.dart
++++ b/lib/features/voice/presentation/widgets/pip/voice_pip_layer.dart
+@@ -642,9 +642,12 @@
+ 
+     if (collapsed && _phase == VoicePipOverlayPhase.hidden && !leavingCallUi) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+-        if (!mounted || !collapsed) {
+-          return;
+-        }
++        if (!mounted ||
++            ref.read(voicePipOnSessionCallRouteProvider) ||
++            !ref.read(voiceSessionProvider).isInVoice ||
++            ref.read(voicePipFeaturedTileIdProvider) == null) {
++          return;
++        }
+         if (_phase != VoicePipOverlayPhase.hidden) {
+           return;
+         }
+@@ -654,11 +654,16 @@
+ 
+     if (onCall && _showedPip && _phase == VoicePipOverlayPhase.pip) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+-        if (mounted) {
+-          _beginExpand(
+-            pipRect: _currentPipRect(featuredTileId: featuredTileId),
+-          );
+-        }
++        if (!mounted ||
++            !ref.read(voicePipOnSessionCallRouteProvider) ||
++            _phase != VoicePipOverlayPhase.pip) {
++          return;
++        }
++        _beginExpand(
++          pipRect: _currentPipRect(
++            featuredTileId: ref.read(voicePipFeaturedTileIdProvider),
++          ),
++        );
+       });
+     }
+ 
+@@ -682,9 +682,14 @@
+     if ((!voice.isInVoice || featuredTileId == null) &&
+         _phase != VoicePipOverlayPhase.hidden) {
+       WidgetsBinding.instance.addPostFrameCallback((_) {
+-        if (mounted) {
+-          _hideOverlay();
+-        }
++        if (!mounted) {
++          return;
++        }
++        final VoiceSessionState current = ref.read(voiceSessionProvider);
++        if (!current.isInVoice ||
++            ref.read(voicePipFeaturedTileIdProvider) == null) {
++          _hideOverlay();
++        }
+       });
+     }
+ 
