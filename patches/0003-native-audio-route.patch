@@ -1,0 +1,50 @@
+diff --git a/lib/features/voice/services/voice_settings_applicator.dart b/lib/features/voice/services/voice_settings_applicator.dart
+--- a/lib/features/voice/services/voice_settings_applicator.dart
++++ b/lib/features/voice/services/voice_settings_applicator.dart
+@@ -547,25 +547,27 @@
+     await track.restartTrack(options);
+   }
+ 
+-  Future<void> applySpeakerOutput({
+-    required VoiceSettingsState settings,
+-  }) async {
+-    if (AudioManager.instance.canSwitchSpeakerphone) {
+-      final Set<VoiceOutputRoute> available =
+-          await readAvailableVoiceOutputRoutes();
+-      final VoiceOutputRoute route = effectiveVoiceOutputRoute(
+-        preference: settings.outputRoute,
+-        available: available,
+-      );
+-      final bool speaker = liveKitPrefersSpeaker(route);
+-      try {
+-        await AudioManager.instance.setSpeakerOutputPreferred(
+-          speaker,
+-          force: speaker,
+-        );
+-      } on Object catch (_) {}
+-      await applyNativeVoiceOutputRoute(route);
+-    }
++  Future<void> applySpeakerOutput({
++    required VoiceSettingsState settings,
++  }) async {
++    final Set<VoiceOutputRoute> available =
++        await readAvailableVoiceOutputRoutes();
++    final VoiceOutputRoute route = effectiveVoiceOutputRoute(
++      preference: settings.outputRoute,
++      available: available,
++    );
++    if (AudioManager.instance.canSwitchSpeakerphone) {
++      final bool speaker = liveKitPrefersSpeaker(route);
++      try {
++        await AudioManager.instance.setSpeakerOutputPreferred(
++          speaker,
++          force: speaker,
++        );
++      } on Object catch (_) {}
++    }
++    // Native routing must run even when LiveKit reports no switching support.
++    await applyNativeVoiceOutputRoute(route);
++  }
+   }
+ 
+   String? _resolveDeviceId(String deviceId) {
