@@ -68,7 +68,7 @@ diff --git a/lib/features/voice/providers/voice_session_provider.dart b/lib/feat
 diff --git a/lib/features/voice/domain/voice_output_route.dart b/lib/features/voice/domain/voice_output_route.dart
 --- a/lib/features/voice/domain/voice_output_route.dart
 +++ b/lib/features/voice/domain/voice_output_route.dart
-@@ -43,15 +43,12 @@
+@@ -43,15 +43,9 @@
    required VoiceOutputRoute preference,
    required Set<VoiceOutputRoute> available,
  }) {
@@ -83,10 +83,7 @@ diff --git a/lib/features/voice/domain/voice_output_route.dart b/lib/features/vo
 -  return preferenceRoute;
 +  // Do not silently replace an explicitly selected speaker route with a
 +  // headset merely because a headset is connected.
-+  return resolveVoiceOutputRoute(
-+    preference: preference,
-+    available: available,
-+  );
++  return resolveVoiceOutputRoute(preference: preference, available: available);
  }
  
  bool liveKitPrefersSpeaker(VoiceOutputRoute route) {
