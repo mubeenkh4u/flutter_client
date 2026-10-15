@@ -1,7 +1,7 @@
 diff --git a/lib/features/voice/services/voice_settings_applicator.dart b/lib/features/voice/services/voice_settings_applicator.dart
 --- a/lib/features/voice/services/voice_settings_applicator.dart
 +++ b/lib/features/voice/services/voice_settings_applicator.dart
-@@ -547,25 +547,26 @@
+@@ -547,24 +547,26 @@
      await track.restartTrack(options);
    }
  
