@@ -21,9 +21,21 @@ a patch in subsequent builds; do not rename or renumber patches casually.
 
 ## Patch application and upstream sync
 
-Update the fork's `beta` branch from **official upstream Beta** using a clean
-fast-forward/sync workflow. Do not sync from upstream Canary, and never force
-`patched` onto `beta`. Then:
+Update the fork's `beta` branch from **official upstream Beta**, not
+upstream Canary. The default-branch fork-sync button may target Canary;
+use an explicit Beta fast-forward instead:
+
+```bash
+git remote add upstream https://github.com/fluxerapp/flutter_client.git 2>/dev/null || true
+git fetch upstream beta
+git switch beta
+git merge --ff-only upstream/beta
+git push origin beta
+git switch patched
+```
+
+This sync changes only `beta` to match upstream; it never merges or applies
+our custom changes onto `beta`. Then:
 
 ```bash
 git fetch origin beta patched
