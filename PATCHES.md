@@ -18,6 +18,7 @@ a patch in subsequent builds; do not rename or renumber patches casually.
 | 0004-pip-regression-tests.patch | Widget regressions for camera-to-audio avatar sizing and repeated PiP expand/collapse. |
 | 0005-patched-app-labels.patch | Show "Fluxer Beta Patched" as the app label on Android and iOS Beta, without modifying upstream source. |
 | 0006-voice-only-layout-fallback.patch | When the last camera/screenshare ends, restore audio-only avatars in the full call grid even if "Only show videos" was previously selected; includes focused tests. |
+| 0007-test-fixture-stability.patch | Keep voice-join tests independent of production router/database initialization and wait deterministically for asynchronous message-sound playback under CI load. |
 
 ## Patch application and upstream sync
 
