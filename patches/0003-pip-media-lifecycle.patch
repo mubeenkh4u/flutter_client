@@ -1,0 +1,192 @@
+diff --git a/lib/features/voice/presentation/widgets/pip/voice_pip_layer.dart b/lib/features/voice/presentation/widgets/pip/voice_pip_layer.dart
+--- a/lib/features/voice/presentation/widgets/pip/voice_pip_layer.dart
++++ b/lib/features/voice/presentation/widgets/pip/voice_pip_layer.dart
+@@ -63,7 +63,6 @@
+   Rect? _frozenPipRect;
+   var _expandWaitFrames = 0;
+   var _holdCollapseAtFullscreen = false;
+-  Size? _pipCardSize;
+   String? _lastPipSubscribeKey;
+   final GlobalKey _featuredVideoKey = GlobalKey(
+     debugLabel: 'voice-pip-featured-video',
+@@ -292,7 +291,6 @@
+     }
+     _stopMove();
+     _frozenPipRect = pipRect;
+-    _pipCardSize = pipRect.size;
+     final Rect fromSlot =
+         _lastSlotRect ?? _slotRect() ?? _expandTarget(pipSize: pipRect.size);
+     _flight = VoicePipHeroFlight(begin: pipRect, end: fromSlot);
+@@ -326,7 +324,6 @@
+     _resetSettle();
+     _stopMove();
+     _frozenPipRect = pipRect;
+-    _pipCardSize = pipRect.size;
+     _expandWaitFrames = 0;
+     _flight = VoicePipHeroFlight(begin: pipRect, end: pipRect);
+     _setPhase(VoicePipOverlayPhase.expanding);
+@@ -368,7 +365,6 @@
+     final Rect? landed = _flight?.rectAt(0) ?? _frozenPipRect;
+     if (landed != null) {
+       _visualOrigin = landed.topLeft;
+-      _pipCardSize = landed.size;
+     }
+     _flight = null;
+     _frozenPipRect = null;
+@@ -383,7 +379,6 @@
+     takeVoicePipSkipPhoneEnter();
+     _flight = null;
+     _frozenPipRect = null;
+-    _pipCardSize = null;
+     _holdCollapseAtFullscreen = false;
+     _setPhase(VoicePipOverlayPhase.hidden);
+     _markPaint();
+@@ -449,9 +444,8 @@
+       isScreenShare: isScreen,
+       hasVideo: hasVideo,
+     );
+-    final Size card = _phase == VoicePipOverlayPhase.pip && _pipCardSize != null
+-        ? _pipCardSize!
+-        : measured;
++    // Size follows the current camera/screen share, not the previous flight.
++    final Size card = measured;
+     final Rect safe = voicePipSafeRect(
+       viewport: viewport,
+       insets: _safeInsets(context),
+@@ -505,10 +499,11 @@
+           FluxerGestureDetector(
+             key: kVoiceInAppPipKey,
+             behavior: HitTestBehavior.opaque,
+-            onTap: () {
+-              navigateToActiveVoiceSession(context, voice: voice);
+-              _beginExpand(pipRect: pipRect);
+-            },
++            onTap: () {
++              // Keep the PiP flight alive before navigation updates the route.
++              _beginExpand(pipRect: pipRect);
++              navigateToActiveVoiceSession(context, voice: voice);
++            },
+             onPanStart: (_) {
+               _stopMove();
+               _playedMoveHaptic = false;
+@@ -585,9 +580,7 @@
+       isScreenShare: parsed?.source == VoiceParticipantTileSource.screenShare,
+       hasVideo: ref.read(voicePipFeaturedHasVideoProvider),
+     );
+-    final Size card = _phase == VoicePipOverlayPhase.pip && _pipCardSize != null
+-        ? _pipCardSize!
+-        : measured;
++    final Size card = measured;
+     final Rect safe = voicePipSafeRect(
+       viewport: viewport,
+       insets: _safeInsets(context),
+@@ -691,9 +684,11 @@
+     _wasOnCall = onCall;
+     _showedPip = collapsed && featuredTileId != null;
+ 
+-    final VoiceMediaRoom? media = voice.media;
+-    if (collapsed && media != null) {
+-      final String subscribeKey = '${identityHashCode(media)}|$featuredTileId';
++    final bool hasFeaturedVideo = ref.watch(voicePipFeaturedHasVideoProvider);
++    final VoiceMediaRoom? media = voice.media;
++    if (collapsed && media != null) {
++      final String subscribeKey =
++          '${identityHashCode(media)}|$featuredTileId|$hasFeaturedVideo';
+       if (subscribeKey != _lastPipSubscribeKey) {
+         _lastPipSubscribeKey = subscribeKey;
+         final String? tileId = featuredTileId;
+@@ -732,8 +727,7 @@
+             _phase == VoicePipOverlayPhase.pip ||
+             overlayPhase == VoicePipOverlayPhase.pip);
+ 
+-    final bool hasFeaturedVideo = ref.watch(voicePipFeaturedHasVideoProvider);
+-    final Offset? pipPlacement = ref.watch(voicePipPlacementProvider);
++    final Offset? pipPlacement = ref.watch(voicePipPlacementProvider);
+     final Widget? featuredVideo = featuredTileId == null
+         ? null
+         : RepaintBoundary(
+diff --git a/lib/features/voice/providers/voice_pip_providers.dart b/lib/features/voice/providers/voice_pip_providers.dart
+--- a/lib/features/voice/providers/voice_pip_providers.dart
++++ b/lib/features/voice/providers/voice_pip_providers.dart
+@@ -74,9 +74,10 @@
+         participant.voice.selfMute ||
+         participant.voice.mute ||
+         participant.voice.suppress;
+-    final bool hasCamera =
+-        participant.voice.selfVideo ||
+-        (mediaParticipant != null && mediaParticipant.hasCamera);
++    final bool hasCamera = voicePipHasPublishedTrack(
++      gatewayFlag: participant.voice.selfVideo,
++      mediaFlag: mediaParticipant?.hasCamera,
++    );
+     tiles.add(
+       VoicePipCandidate(
+         tileId: voiceParticipantTileId(
+@@ -91,9 +92,10 @@
+         isMuted: muted,
+       ),
+     );
+-    final bool hasScreen =
+-        participant.voice.selfStream ||
+-        (mediaParticipant != null && mediaParticipant.hasScreenShare);
++    final bool hasScreen = voicePipHasPublishedTrack(
++      gatewayFlag: participant.voice.selfStream,
++      mediaFlag: mediaParticipant?.hasScreenShare,
++    );
+     if (hasScreen) {
+       tiles.add(
+         VoicePipCandidate(
+diff --git a/lib/features/voice/utils/voice_pip_featured_selector.dart b/lib/features/voice/utils/voice_pip_featured_selector.dart
+--- a/lib/features/voice/utils/voice_pip_featured_selector.dart
++++ b/lib/features/voice/utils/voice_pip_featured_selector.dart
+@@ -1,6 +1,14 @@
+ import 'package:fluxer_app/features/ui/voice/voice_participant_media_tile.dart';
+ 
+-const Duration kVoicePipSpeakerHysteresis = Duration(milliseconds: 550);
++const Duration kVoicePipSpeakerHysteresis = Duration(milliseconds: 550);
++
++// Gateway video flags may outlive the actual transport tracks after media ends.
++bool voicePipHasPublishedTrack({
++  required bool gatewayFlag,
++  required bool? mediaFlag,
++}) {
++  return mediaFlag ?? gatewayFlag;
++}
+ 
+ class VoicePipCandidate {
+   const VoicePipCandidate({
+diff --git a/test/features/voice/utils/voice_pip_featured_selector_test.dart b/test/features/voice/utils/voice_pip_featured_selector_test.dart
+--- a/test/features/voice/utils/voice_pip_featured_selector_test.dart
++++ b/test/features/voice/utils/voice_pip_featured_selector_test.dart
+@@ -33,7 +33,30 @@
+ void main() {
+   final DateTime t0 = DateTime.utc(2026);
+ 
+-  group('selectVoicePipFeatured', () {
++  group('voicePipHasPublishedTrack', () {
++    test('stale gateway screenshare does not keep a video tile', () {
++      expect(
++        voicePipHasPublishedTrack(gatewayFlag: true, mediaFlag: false),
++        isFalse,
++      );
++    });
++
++    test('gateway fallback works before a media participant exists', () {
++      expect(
++        voicePipHasPublishedTrack(gatewayFlag: true, mediaFlag: null),
++        isTrue,
++      );
++    });
++
++    test('transport camera publication wins when gateway is late', () {
++      expect(
++        voicePipHasPublishedTrack(gatewayFlag: false, mediaFlag: true),
++        isTrue,
++      );
++    });
++  });
++
++  group('selectVoicePipFeatured', () {
+     test('watched screen share wins over speaking camera', () {
+       final VoicePipFeaturedResult result = selectVoicePipFeatured(
+         previous: const VoicePipFeaturedResult(),
