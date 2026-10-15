@@ -17,6 +17,7 @@ a patch in subsequent builds; do not rename or renumber patches casually.
 | 0003-pip-media-lifecycle.patch | Recalculate PiP size when media changes, so an ended video/screen share becomes an avatar; prioritize actual transport publication state over delayed gateway flags; arm PiP expansion before navigation removes the compact overlay. Includes media-selection tests. |
 | 0004-pip-regression-tests.patch | Widget regressions for camera-to-audio avatar sizing and repeated PiP expand/collapse. |
 | 0005-patched-app-labels.patch | Show "Fluxer Beta Patched" as the app label on Android and iOS Beta, without modifying upstream source. |
+| 0006-voice-only-layout-fallback.patch | When the last camera/screenshare ends, restore audio-only avatars in the full call grid even if "Only show videos" was previously selected; includes focused tests. |
 
 ## Patch application and upstream sync
 
