@@ -1,0 +1,75 @@
+name: Patched Beta Compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [patched]
+    paths:
+      - 'patches/**'
+      - '.github/workflows/patched-beta.yml'
+  schedule:
+    - cron: '0 6 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: patched-beta-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apply-and-analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout patch collection
+        uses: actions/checkout@v4
+        with:
+          path: patchset
+          persist-credentials: false
+
+      - name: Checkout clean fork Beta
+        uses: actions/checkout@v4
+        with:
+          ref: beta
+          path: source
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Record baseline and check patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C source rev-parse HEAD | tee upstream-beta-commit.txt
+          for patch in patchset/patches/*.patch; do
+            echo "Checking $patch"
+            git -C source apply --check "../$patch"
+            git -C source apply "../$patch"
+          done
+          git -C source diff --check
+          git -C source diff --stat
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Configure and install dependencies
+        working-directory: source
+        run: |
+          dart tool/configure_build.dart --profile=oss
+          flutter pub get
+
+      - name: Check formatting of patched Dart code
+        working-directory: source
+        run: dart format --output=none --set-exit-if-changed lib/features/ui/voice/voice_channel_control_panel_settings.dart
+
+      - name: Dart analyze
+        working-directory: source
+        run: flutter analyze
+
+      - name: Upload patch baseline reference
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-beta-baseline
+          path: upstream-beta-commit.txt
