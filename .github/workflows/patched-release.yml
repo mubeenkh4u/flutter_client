@@ -113,7 +113,10 @@ jobs:
       - name: Configure OSS source tree
         working-directory: source
         run: |
+          set -euo pipefail
           dart tool/configure_build.dart --profile=oss
+          # Match upstream's macOS UnifiedPush dependency workaround.
+          bash tool/apply_macos_pub_overrides.sh
           flutter pub get
           dart run build_runner build
 
