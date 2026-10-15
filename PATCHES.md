@@ -76,18 +76,39 @@ steps are passed.
 
 ## GitHub release workflow
 
-`/.github/workflows/patched-release.yml` is configured to build
-**Android UnifiedPush OSS** and a **signed iOS Beta IPA** from fresh copies
-of Beta with only enabled patches applied. Publishing is intentionally
-gated by successful compatibility tests and both signed platform builds.
+`/.github/workflows/patched-release.yml` builds **signed Android
+UnifiedPush OSS** APKs from a fresh Beta checkout plus only enabled patches.
+It does not require Apple credentials for an Android-only release. An optional
+`-both` suffix also enables the signed iOS IPA build. Publication is gated
+by patch verification, Dart tests, and every selected platform build.
 
-To publish, create and push a tag **pointing to the desired commit on
-`patched`**, formatted `v<beta-version>-patched.<revision>`, for example
-`v2026.10.100-patched.1`, or invoke manual release dispatch with
-`publish=true` when GitHub permits. The title is `Fluxer Beta
-<beta-version>-patched` and assets end in `-patched.apk` or
-`-patched.ipa`. SHA256SUMS and exact commit provenance accompany the release.
-The release is a GitHub **prerelease**, not an App Store/TestFlight upload.
+**To publish Android APKs**, after the patchset verification has passed and
+Android signing secrets are configured:
+
+```bash
+git fetch origin beta patched
+git switch patched
+git pull --ff-only origin patched
+git tag -a v2026.10.100-patched.1 -m "Fluxer Beta 2026.10.100 patched Android"
+git push origin v2026.10.100-patched.1
+```
+
+Check `pubspec.yaml` on `beta` and increment the patched revision if
+that tag already exists. The tag **must point to a commit on `patched`**.
+A tag like `v2026.10.100-patched.1` triggers Android-only; a tag like
+`v2026.10.100-patched.2-both` triggers Android plus iOS (all signing
+materials required). Never create the GitHub Release manually before this
+tag-triggered workflow; the workflow creates it after successful checks.
+
+Because default branch `beta` deliberately contains no patched release
+workflow, GitHub may not show the "Run workflow" button for this
+patch-branch workflow. Use the tag-push path instead. **Do not merge
+patched into beta to enable that button.**
+
+The title is `Fluxer Beta <beta-version>-patched`; APK/IPA asset filenames
+end in `-patched.apk` or `-patched.ipa`. A SHA256SUMS file and the exact
+upstream/patchset commit hashes accompany the GitHub **prerelease**.
+This is not an App Store/TestFlight upload.
 
 **Android:** supply `ANDROID_KEYSTORE_BASE64`,
 `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
