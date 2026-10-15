@@ -3,3 +3,4 @@ patches/0001-mobile-speaker-control.patch
 patches/0002-mobile-audio-routing.patch
 patches/0003-pip-media-lifecycle.patch
 patches/0004-pip-regression-tests.patch
+patches/0005-patched-app-labels.patch
