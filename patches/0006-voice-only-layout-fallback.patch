@@ -1,0 +1,145 @@
+diff --git a/lib/features/ui/voice/voice_channel_participant_grid.dart b/lib/features/ui/voice/voice_channel_participant_grid.dart
+--- a/lib/features/ui/voice/voice_channel_participant_grid.dart
++++ b/lib/features/ui/voice/voice_channel_participant_grid.dart
+@@ -47,7 +47,8 @@
+ import 'package:fluxer_app/features/voice/utils/voice_participant_track_resolver.dart';
+ import 'package:fluxer_app/features/voice/utils/voice_pip_morph.dart';
+ import 'package:fluxer_app/features/voice/utils/voice_stream_info.dart';
+-import 'package:fluxer_app/features/voice/utils/voice_video_subscription.dart';
++import 'package:fluxer_app/features/voice/utils/voice_video_subscription.dart';
++import 'package:fluxer_app/features/voice/utils/voice_visual_fallback.dart';
+ import 'package:fluxer_app/l10n/generated/fluxer_localizations.dart';
+ import 'package:fluxer_app/material_ui.dart';
+ import 'package:fluxer_app/shared/providers/guild_user_display_provider.dart';
+@@ -103,31 +104,52 @@
+   required bool showOwnCamera,
+   String? forceShowUserId,
+ }) {
+-  final List<_VoiceGridTileItem> tileItems = <_VoiceGridTileItem>[];
+-  for (final VoiceChannelParticipantData participant in participants) {
+-    final bool isOwnParticipant =
+-        currentUserId != null && participant.userId == currentUserId;
+-    final bool includeCameraTile = showOwnCamera || !isOwnParticipant;
+-    final bool includeVideoParticipant =
+-        !onlyShowVideos ||
+-        participant.voice.selfVideo ||
+-        participant.userId == forceShowUserId;
+-    if (includeCameraTile && includeVideoParticipant) {
+-      tileItems.add(
+-        _VoiceGridTileItem(
+-          data: participant,
+-          source: VoiceParticipantTileSource.camera,
+-        ),
+-      );
+-    }
+-    final VoiceMediaParticipant? mediaParticipant = resolveVoiceParticipant(
+-      media: media,
+-      voice: participant.voice,
+-      userId: participant.userId,
+-      currentUserId: currentUserId,
+-      localConnectionId: localConnectionId,
+-    );
+-    final bool shouldShowScreenShareTile =
++  final List<_VoiceGridTileItem> tileItems = <_VoiceGridTileItem>[];
++  // The "only videos" filter must not leave an empty stage once everybody
++  // stops publishing camera and screen-share tracks.
++  final bool hasActiveVisual =
++      !onlyShowVideos ||
++      participants.any((VoiceChannelParticipantData participant) {
++        final VoiceMediaParticipant? active = resolveVoiceParticipant(
++          media: media,
++          voice: participant.voice,
++          userId: participant.userId,
++          currentUserId: currentUserId,
++          localConnectionId: localConnectionId,
++        );
++        return (active?.hasCamera ?? participant.voice.selfVideo) ||
++            (active?.hasScreenShare ?? participant.voice.selfStream);
++      });
++  final bool audioOnly = voiceGridNeedsAudioOnlyFallback(
++    onlyShowVideos: onlyShowVideos,
++    hasActiveVisual: hasActiveVisual,
++  );
++  for (final VoiceChannelParticipantData participant in participants) {
++    final VoiceMediaParticipant? mediaParticipant = resolveVoiceParticipant(
++      media: media,
++      voice: participant.voice,
++      userId: participant.userId,
++      currentUserId: currentUserId,
++      localConnectionId: localConnectionId,
++    );
++    final bool isOwnParticipant =
++        currentUserId != null && participant.userId == currentUserId;
++    final bool includeCameraTile =
++        audioOnly || showOwnCamera || !isOwnParticipant;
++    final bool includeVideoParticipant =
++        !onlyShowVideos ||
++        audioOnly ||
++        (mediaParticipant?.hasCamera ?? participant.voice.selfVideo) ||
++        participant.userId == forceShowUserId;
++    if (includeCameraTile && includeVideoParticipant) {
++      tileItems.add(
++        _VoiceGridTileItem(
++          data: participant,
++          source: VoiceParticipantTileSource.camera,
++        ),
++      );
++    }
++    final bool shouldShowScreenShareTile =
+         (mediaParticipant != null && mediaParticipant.hasScreenShare) ||
+         (participant.voice.selfStream && media == null);
+     if (!shouldShowScreenShareTile) {
+diff --git a/lib/features/voice/utils/voice_visual_fallback.dart b/lib/features/voice/utils/voice_visual_fallback.dart
+new file mode 100644
+--- /dev/null
++++ b/lib/features/voice/utils/voice_visual_fallback.dart
+@@ -0,0 +1,8 @@
++// When no camera or screen share is active, show voice avatars even if the
++// user previously selected the "Only show videos" filter.
++bool voiceGridNeedsAudioOnlyFallback({
++  required bool onlyShowVideos,
++  required bool hasActiveVisual,
++}) {
++  return onlyShowVideos && !hasActiveVisual;
++}
+diff --git a/test/features/voice/utils/voice_visual_fallback_test.dart b/test/features/voice/utils/voice_visual_fallback_test.dart
+new file mode 100644
+--- /dev/null
++++ b/test/features/voice/utils/voice_visual_fallback_test.dart
+@@ -0,0 +1,36 @@
++import 'package:flutter_test/flutter_test.dart';
++import 'package:fluxer_app/features/voice/utils/voice_visual_fallback.dart';
++
++void main() {
++  group('voiceGridNeedsAudioOnlyFallback', () {
++    test('restores voice avatars when the last video stops', () {
++      expect(
++        voiceGridNeedsAudioOnlyFallback(
++          onlyShowVideos: true,
++          hasActiveVisual: false,
++        ),
++        isTrue,
++      );
++    });
++
++    test('keeps video filtering if screen share remains active', () {
++      expect(
++        voiceGridNeedsAudioOnlyFallback(
++          onlyShowVideos: true,
++          hasActiveVisual: true,
++        ),
++        isFalse,
++      );
++    });
++
++    test('never forces fallback if videos are not filtered', () {
++      expect(
++        voiceGridNeedsAudioOnlyFallback(
++          onlyShowVideos: false,
++          hasActiveVisual: false,
++        ),
++        isFalse,
++      );
++    });
++  });
++}
