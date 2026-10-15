@@ -1,0 +1,120 @@
+diff --git a/lib/features/voice/services/voice_settings_applicator.dart b/lib/features/voice/services/voice_settings_applicator.dart
+--- a/lib/features/voice/services/voice_settings_applicator.dart
++++ b/lib/features/voice/services/voice_settings_applicator.dart
+@@ -550,22 +550,29 @@
+   Future<void> applySpeakerOutput({
+     required VoiceSettingsState settings,
+   }) async {
+-    if (AudioManager.instance.canSwitchSpeakerphone) {
+-      final Set<VoiceOutputRoute> available =
+-          await readAvailableVoiceOutputRoutes();
+-      final VoiceOutputRoute route = effectiveVoiceOutputRoute(
+-        preference: settings.outputRoute,
+-        available: available,
+-      );
+-      final bool speaker = liveKitPrefersSpeaker(route);
+-      try {
+-        await AudioManager.instance.setSpeakerOutputPreferred(
+-          speaker,
+-          force: speaker,
+-        );
+-      } on Object catch (_) {}
+-      await applyNativeVoiceOutputRoute(route);
+-    }
++    // On mobile the native route bridge works even when LiveKit's speaker
++    // capability flag is false. Never gate that bridge behind LiveKit.
++    if (!isFluxerNativeMobileOs &&
++        !AudioManager.instance.canSwitchSpeakerphone) {
++      return;
++    }
++    final Set<VoiceOutputRoute> available =
++        await readAvailableVoiceOutputRoutes();
++    final VoiceOutputRoute route = effectiveVoiceOutputRoute(
++      preference: settings.outputRoute,
++      available: available,
++    );
++    if (AudioManager.instance.canSwitchSpeakerphone) {
++      final bool speaker = liveKitPrefersSpeaker(route);
++      try {
++        await AudioManager.instance.setSpeakerOutputPreferred(
++          speaker,
++          force: speaker,
++        );
++      } on Object catch (_) {}
++    }
++    // Apply native routing last: WebRTC may replace the preferred device.
++    await applyNativeVoiceOutputRoute(route);
+   }
+ 
+   String? _resolveDeviceId(String deviceId) {
+diff --git a/lib/features/voice/providers/voice_session_provider.dart b/lib/features/voice/providers/voice_session_provider.dart
+--- a/lib/features/voice/providers/voice_session_provider.dart
++++ b/lib/features/voice/providers/voice_session_provider.dart
+@@ -3297,8 +3297,12 @@
+ 
+   Future<void> _applyVoiceOutputRouting(VoiceSettingsState settings) async {
+     final VoiceSettingsApplicator applicator = _voiceSettingsApplicator();
+-    await applicator.applySpeakerOutput(settings: settings);
+-    await _applyAudioOutputDevice(settings.outputDeviceId);
++    await applicator.applySpeakerOutput(settings: settings);
++    // A stale saved device ID must not undo the explicitly selected native
++    // speaker/earpiece/headset route on Android or iOS.
++    if (!isFluxerNativeMobileOs) {
++      await _applyAudioOutputDevice(settings.outputDeviceId);
++    }
+   }
+ 
+   void _cancelSpeakerOutputRetry() {
+diff --git a/lib/features/voice/domain/voice_output_route.dart b/lib/features/voice/domain/voice_output_route.dart
+--- a/lib/features/voice/domain/voice_output_route.dart
++++ b/lib/features/voice/domain/voice_output_route.dart
+@@ -43,15 +43,12 @@
+   required VoiceOutputRoute preference,
+   required Set<VoiceOutputRoute> available,
+ }) {
+-  final VoiceOutputRoute preferenceRoute = resolveVoiceOutputRoute(
+-    preference: preference,
+-    available: available,
+-  );
+-  if (preferenceRoute == VoiceOutputRoute.speaker &&
+-      available.contains(VoiceOutputRoute.headset)) {
+-    return VoiceOutputRoute.headset;
+-  }
+-  return preferenceRoute;
++  // Do not silently replace an explicitly selected speaker route with a
++  // headset merely because a headset is connected.
++  return resolveVoiceOutputRoute(
++    preference: preference,
++    available: available,
++  );
+ }
+ 
+ bool liveKitPrefersSpeaker(VoiceOutputRoute route) {
+diff --git a/test/features/voice/domain/voice_output_route_test.dart b/test/features/voice/domain/voice_output_route_test.dart
+--- a/test/features/voice/domain/voice_output_route_test.dart
++++ b/test/features/voice/domain/voice_output_route_test.dart
+@@ -35,15 +35,15 @@
+   });
+ 
+   group('effectiveVoiceOutputRoute', () {
+-    test('routes speaker preference through headset when available', () {
+-      expect(
+-        effectiveVoiceOutputRoute(
+-          preference: VoiceOutputRoute.speaker,
+-          available: VoiceOutputRoute.values.toSet(),
+-        ),
+-        VoiceOutputRoute.headset,
+-      );
+-    });
++    test('honors speaker selection even when a headset is connected', () {
++      expect(
++        effectiveVoiceOutputRoute(
++          preference: VoiceOutputRoute.speaker,
++          available: VoiceOutputRoute.values.toSet(),
++        ),
++        VoiceOutputRoute.speaker,
++      );
++    });
+ 
+     test('keeps speaker when no headset is available', () {
+       expect(
