@@ -1,0 +1,42 @@
+diff --git a/android/app/build.gradle.kts b/android/app/build.gradle.kts
+--- a/android/app/build.gradle.kts
++++ b/android/app/build.gradle.kts
+@@ -172,7 +172,7 @@
+         }
+         create("beta") {
+             dimension = "environment"
+-            manifestPlaceholders["appLabel"] = "Fluxer Beta"
++            manifestPlaceholders["appLabel"] = "Fluxer Beta Patched"
+             manifestPlaceholders["buildEnvironment"] = "beta"
+             manifestPlaceholders["measureApiKey"] =
+                 readMeasureAndroidApiKey(
+diff --git a/ios/Runner.xcodeproj/project.pbxproj b/ios/Runner.xcodeproj/project.pbxproj
+--- a/ios/Runner.xcodeproj/project.pbxproj
++++ b/ios/Runner.xcodeproj/project.pbxproj
+@@ -3038,7 +3038,7 @@
+ 				DEVELOPMENT_TEAM = 3G5837T29K;
+ 				ENABLE_BITCODE = NO;
+ 				INFOPLIST_FILE = Runner/Info.plist;
+-				INFOPLIST_KEY_CFBundleDisplayName = "Fluxer Beta";
++				INFOPLIST_KEY_CFBundleDisplayName = "Fluxer Beta Patched";
+ 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+ 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+ 				LD_RUNPATH_SEARCH_PATHS = (
+@@ -3090,7 +3090,7 @@
+ 				DEVELOPMENT_TEAM = 3G5837T29K;
+ 				ENABLE_BITCODE = NO;
+ 				INFOPLIST_FILE = Runner/Info.plist;
+-				INFOPLIST_KEY_CFBundleDisplayName = "Fluxer Beta";
++				INFOPLIST_KEY_CFBundleDisplayName = "Fluxer Beta Patched";
+ 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+ 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+ 				LD_RUNPATH_SEARCH_PATHS = (
+@@ -3141,7 +3141,7 @@
+ 				DEVELOPMENT_TEAM = 3G5837T29K;
+ 				ENABLE_BITCODE = NO;
+ 				INFOPLIST_FILE = Runner/Info.plist;
+-				INFOPLIST_KEY_CFBundleDisplayName = "Fluxer Beta";
++				INFOPLIST_KEY_CFBundleDisplayName = "Fluxer Beta Patched";
+ 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
+ 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+ 				LD_RUNPATH_SEARCH_PATHS = (
