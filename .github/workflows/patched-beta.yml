@@ -8,6 +8,11 @@ on:
       - 'scripts/**'
       - '.github/workflows/patched-beta.yml'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      beta_sha:
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -24,14 +29,14 @@ jobs:
       - name: Checkout patch branch (patches only)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: patched
+          ref: ${{ github.sha }}
           path: patchset
           persist-credentials: false
 
       - name: Checkout clean Beta (never commit patched files here)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
-          ref: beta
+          ref: ${{ inputs.beta_sha || 'beta' }}
           path: source
           submodules: recursive
           persist-credentials: false
