@@ -1,0 +1,88 @@
+diff --git a/test/features/voice/utils/voice_connection_actions_test.dart b/test/features/voice/utils/voice_connection_actions_test.dart
+--- a/test/features/voice/utils/voice_connection_actions_test.dart
++++ b/test/features/voice/utils/voice_connection_actions_test.dart
+@@ -19,9 +19,10 @@
+ import 'package:fluxer_app/features/voice/utils/voice_connection_actions.dart';
+ import 'package:fluxer_app/l10n/fluxer_localizations_delegates.dart';
+ import 'package:fluxer_app/l10n/generated/fluxer_localizations.dart';
+-import 'package:fluxer_app/material_ui.dart';
+-import 'package:fluxer_dart/gateway.dart';
+-import 'package:riverpod/src/framework.dart' show Override;
++import 'package:fluxer_app/material_ui.dart';
++import 'package:fluxer_dart/gateway.dart';
++import 'package:go_router/go_router.dart';
++import 'package:riverpod/src/framework.dart' show Override;
+ 
+ const String _userId = 'self';
+ const String _guildId = 'g1';
+@@ -414,9 +415,23 @@
+   await tester.pumpWidget(
+     ProviderScope(
+       overrides: <Override>[
+-        gatewayConnectionProvider.overrideWithValue(gateway),
+-        currentUserIdProvider.overrideWithValue(_userId),
+-        voiceSessionProvider.overrideWith(() => voiceSession),
++        gatewayConnectionProvider.overrideWithValue(gateway),
++        currentUserIdProvider.overrideWithValue(_userId),
++        // The join tests do not exercise app routing. Avoid instantiating
++        // production router/database providers during navigation checks.
++        fluxerRouterProvider.overrideWith((ref) {
++          final GoRouter router = GoRouter(
++            routes: <RouteBase>[
++              GoRoute(
++                path: '/',
++                builder: (context, state) => const SizedBox.shrink(),
++              ),
++            ],
++          );
++          ref.onDispose(router.dispose);
++          return router;
++        }),
++        voiceSessionProvider.overrideWith(() => voiceSession),
+         matureContentAgreementsProvider.overrideWith(_LoadedAgreements.new),
+         shouldShowMatureContentGateProvider(
+           _channelId,
+diff --git a/test/core/providers/fluxer_sfx_provider_test.dart b/test/core/providers/fluxer_sfx_provider_test.dart
+--- a/test/core/providers/fluxer_sfx_provider_test.dart
++++ b/test/core/providers/fluxer_sfx_provider_test.dart
+@@ -102,11 +102,20 @@
+   });
+ }
+ 
+-Future<void> _settle() async {
+-  await pumpEventQueue();
+-  await Future<void>.delayed(const Duration(milliseconds: 200));
+-}
+-
++Future<void> _settle() async {
++  await pumpEventQueue();
++  await Future<void>.delayed(const Duration(milliseconds: 200));
++}
++
++// The message evaluator schedules playback asynchronously. Wait for the
++// observable sound instead of racing a fixed-duration sleep under CI load.
++Future<void> _waitForSfx(_RecordingSfx sfx) async {
++  final DateTime deadline = DateTime.now().add(const Duration(seconds: 3));
++  while (sfx.played.isEmpty && DateTime.now().isBefore(deadline)) {
++    await Future<void>.delayed(const Duration(milliseconds: 25));
++  }
++}
++
+ MessageCreateEvent _createEvent(String id) {
+   return MessageCreateEvent(
+     message: MessageResponseSchema.fromJson(<String, dynamic>{
+@@ -168,10 +177,10 @@
+           .read(messageRealtimeBusProvider)
+           .emit(testMessageCreated(_createEvent('1')));
+ 
+-      await pumpEventQueue();
+-      await Future<void>.delayed(const Duration(milliseconds: 200));
+-
+-      expect(sfx.played, <FluxerSfxClip>[FluxerSfxClip.message]);
++      await pumpEventQueue();
++      await _waitForSfx(sfx);
++
++      expect(sfx.played, <FluxerSfxClip>[FluxerSfxClip.message]);
+     },
+   );
+   test(
