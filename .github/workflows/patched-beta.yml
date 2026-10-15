@@ -91,7 +91,8 @@ jobs:
             test/features/voice/utils/voice_pip_featured_selector_test.dart \
             test/features/voice/presentation/widgets/pip/voice_pip_layer_test.dart \
             test/features/ui/voice/voice_channel_control_panel_settings_test.dart \
-            test/features/voice/services/voice_settings_applicator_test.dart
+            test/features/voice/services/voice_settings_applicator_test.dart \
+            test/features/voice/utils/voice_visual_fallback_test.dart
 
       - name: Complete Flutter test suite
         working-directory: source
