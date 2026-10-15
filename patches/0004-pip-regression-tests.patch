@@ -1,0 +1,119 @@
+diff --git a/test/features/voice/presentation/widgets/pip/voice_pip_layer_test.dart b/test/features/voice/presentation/widgets/pip/voice_pip_layer_test.dart
+--- a/test/features/voice/presentation/widgets/pip/voice_pip_layer_test.dart
++++ b/test/features/voice/presentation/widgets/pip/voice_pip_layer_test.dart
+@@ -203,9 +203,55 @@
+       expect(tester.getTopLeft(pip), dropped);
+     });
+ 
+-    testWidgets('hero flight grows from the pip into the voice card slot', (
+-      tester,
+-    ) async {
++    testWidgets('video PiP shrinks to an audio-only avatar and grows again', (
++      tester,
++    ) async {
++      final colorTheme = buildDarkColorTheme();
++      final ProviderContainer container = ProviderContainer(
++        overrides: <Override>[
++          voiceSessionProvider.overrideWith(_ConnectedGuildVoice.new),
++          voicePipFeaturedTileIdProvider.overrideWith(_FixedFeatured.new),
++          voicePipFeaturedHasVideoProvider.overrideWith(
++            (ref) => ref.watch(_togglePipVideoProvider),
++          ),
++          voicePipCallViewObscuredProvider.overrideWithValue(false),
++          routeStateProvider.overrideWithValue(_offCallRoute),
++        ],
++      );
++      addTearDown(container.dispose);
++      await tester.pumpWidget(
++        UncontrolledProviderScope(
++          container: container,
++          child: MaterialApp(
++            locale: kTestLocale,
++            localizationsDelegates: fluxerLocalizationsDelegates,
++            supportedLocales: FluxerLocalizations.supportedLocales,
++            theme: buildFluxerTheme(
++              colorTheme: colorTheme,
++              textTheme: FluxerTextTheme.fromColors(colorTheme),
++              layoutTheme: FluxerLayoutTheme.scaled(),
++            ),
++            home: const VoicePipLayer(child: SizedBox.expand()),
++          ),
++        ),
++      );
++      await tester.pump();
++      final Finder pip = find.byKey(kVoiceInAppPipKey);
++      expect(pip, findsOneWidget);
++      expect(tester.getSize(pip), isNot(kVoicePipCompactSize));
++
++      container.read(_togglePipVideoProvider.notifier).setVideo(false);
++      await tester.pump();
++      expect(tester.getSize(pip), kVoicePipCompactSize);
++
++      container.read(_togglePipVideoProvider.notifier).setVideo(true);
++      await tester.pump();
++      expect(tester.getSize(pip), isNot(kVoicePipCompactSize));
++    });
++
++    testWidgets('hero flight grows from the pip into the voice card slot', (
++      tester,
++    ) async {
+       addTearDown(takeVoicePipSkipPhoneEnter);
+       tester.view.physicalSize = const Size(400, 800);
+       tester.view.devicePixelRatio = 1;
+@@ -309,10 +355,31 @@
+         expect(restored.height, closeTo(lastFlight.height, 2));
+       }
+     });
+-  });
+-}
+-
+-class _MutableRoute extends RouteStateNotifier {
++    testWidgets('consecutive PiP expansion and collapse cycles stay usable', (
++      tester,
++    ) async {
++      addTearDown(takeVoicePipSkipPhoneEnter);
++      final _MutableRoute route = _MutableRoute(_offCallRoute);
++      await tester.pumpWidget(_heroHarness(route: route));
++      await tester.pump();
++      await tester.pump();
++      for (int i = 0; i < 2; i++) {
++        expect(find.byKey(kVoiceInAppPipKey), findsOneWidget);
++        route.goTo(_onCallRoute);
++        await tester.pump();
++        await tester.pump();
++        await tester.pumpAndSettle();
++        expect(find.byKey(kVoicePipFlightKey), findsNothing);
++        route.goTo(_offCallRoute);
++        await tester.pump();
++        await tester.pumpAndSettle();
++        expect(find.byKey(kVoiceInAppPipKey), findsOneWidget);
++      }
++    });
++  });
++}
++
++class _MutableRoute extends RouteStateNotifier {
+   _MutableRoute(this._value);
+ 
+   RouteState _value;
+@@ -414,7 +481,19 @@
+   );
+ }
+ 
+-class _FixedFeatured extends VoicePipFeatured {
++final NotifierProvider<_TogglePipVideo, bool> _togglePipVideoProvider =
++    NotifierProvider<_TogglePipVideo, bool>(_TogglePipVideo.new);
++
++class _TogglePipVideo extends Notifier<bool> {
++  @override
++  bool build() => true;
++
++  void setVideo(bool value) {
++    state = value;
++  }
++}
++
++class _FixedFeatured extends VoicePipFeatured {
+   @override
+   String? build() => 'conn|camera';
+ }
