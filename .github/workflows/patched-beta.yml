@@ -1,75 +1,101 @@
-name: Patched Beta Compatibility
+name: Patched Beta - compatibility and tests
 
 on:
-  workflow_dispatch:
   push:
     branches: [patched]
     paths:
       - 'patches/**'
+      - 'scripts/**'
       - '.github/workflows/patched-beta.yml'
-  schedule:
-    - cron: '0 6 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: patched-beta-${{ github.ref }}
+  group: patched-validation-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  apply-and-analyze:
+  verify:
+    name: Apply independent patches, analyze, test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout patch collection
-        uses: actions/checkout@v4
+      - name: Checkout patch branch (patches only)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          ref: patched
           path: patchset
           persist-credentials: false
 
-      - name: Checkout clean fork Beta
-        uses: actions/checkout@v4
+      - name: Checkout clean Beta (never commit patched files here)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           ref: beta
           path: source
           submodules: recursive
           persist-credentials: false
 
-      - name: Record baseline and check patches
-        shell: bash
-        run: |
-          set -euo pipefail
-          git -C source rev-parse HEAD | tee upstream-beta-commit.txt
-          for patch in patchset/patches/*.patch; do
-            echo "Checking $patch"
-            git -C source apply --check "../$patch"
-            git -C source apply "../$patch"
-          done
-          git -C source diff --check
-          git -C source diff --stat
+      - name: Apply only required, enabled patches
+        run: bash patchset/scripts/apply-patches.sh patchset source
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - name: Record exact inputs
+        run: |
+          printf 'beta_commit=%s\n' "$(git -C source rev-parse HEAD)" > patched-provenance.txt
+          printf 'patchset_commit=%s\n' "$(git -C patchset rev-parse HEAD)" >> patched-provenance.txt
+          cat patched-provenance.txt
+
+      - name: Install Flutter
+        uses: axi92/flutter-action@72633a794ba0b23276fa4fc465a6cacb758a90c5
         with:
           channel: stable
 
-      - name: Configure and install dependencies
+      - name: Prepare native assets
+        run: |
+          rustup show active-toolchain || rustup toolchain install stable
+          flutter config --enable-native-assets
+
+      - name: Configure APNs build profile
+        working-directory: source
+        run: dart tool/configure_build.dart --profile=apns
+
+      - name: Resolve Flutter and package dependencies
         working-directory: source
         run: |
-          dart tool/configure_build.dart --profile=oss
           flutter pub get
+          bash tool/pub_get_packages.sh
+          flutter gen-l10n
 
-      - name: Check formatting of patched Dart code
+      - name: Generate Riverpod and other generated sources
         working-directory: source
-        run: dart format --output=none --set-exit-if-changed lib/features/ui/voice/voice_channel_control_panel_settings.dart
+        run: dart run build_runner build
 
-      - name: Dart analyze
+      - name: Enforce Dart formatting
         working-directory: source
-        run: flutter analyze
+        run: bash tool/format_dart.sh --output=none --set-exit-if-changed
 
-      - name: Upload patch baseline reference
+      - name: Dart analysis
+        working-directory: source
+        run: bash tool/flutter_analyze.sh
+
+      - name: PiP and speaker routing regression tests
+        working-directory: source
+        run: |
+          flutter test --reporter failures-only \
+            test/features/voice/domain/voice_output_route_test.dart \
+            test/features/voice/utils/voice_pip_featured_selector_test.dart \
+            test/features/voice/presentation/widgets/pip/voice_pip_layer_test.dart \
+            test/features/ui/voice/voice_channel_control_panel_settings_test.dart \
+            test/features/voice/services/voice_settings_applicator_test.dart
+
+      - name: Complete Flutter test suite
+        working-directory: source
+        run: flutter test --reporter failures-only
+
+      - name: Store exact upstream and patchset provenance
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
-          name: patched-beta-baseline
-          path: upstream-beta-commit.txt
+          name: patched-beta-provenance
+          path: patched-provenance.txt
+          if-no-files-found: warn
