@@ -19,7 +19,8 @@ permissions:
 
 concurrency:
   group: patched-validation-${{ github.ref }}
-  cancel-in-progress: true
+  # Finish each pinned validation despite later edits to inactive patch files.
+  cancel-in-progress: false
 
 jobs:
   verify:
