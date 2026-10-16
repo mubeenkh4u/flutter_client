@@ -84,7 +84,15 @@ It does not require Apple credentials for an Android-only release. An optional
 by patch verification, Dart tests, and every selected platform build.
 
 **To publish Android APKs**, after the patchset verification has passed and
-Android signing secrets are configured:
+Android signing secrets are configured, you can submit an explicit
+release request by changing only `release-requests/android-tag.txt` on
+`patched`. Its content must be a tag, e.g. `v2026.10.100-patched.1`.
+A push modifying that one file runs the existing verification, Android
+build, signing and GitHub prerelease publishing pipeline. The release
+tag is created by `gh release create` only after successful builds.
+A later release must use a new, unused tag. This does not touch `beta`.
+
+Alternatively, publish the same tag from a local clone:
 
 ```bash
 git fetch origin beta patched
@@ -98,8 +106,8 @@ Check `pubspec.yaml` on `beta` and increment the patched revision if
 that tag already exists. The tag **must point to a commit on `patched`**.
 A tag like `v2026.10.100-patched.1` triggers Android-only; a tag like
 `v2026.10.100-patched.2-both` triggers Android plus iOS (all signing
-materials required). Never create the GitHub Release manually before this
-tag-triggered workflow; the workflow creates it after successful checks.
+materials required). Never create the GitHub Release manually before the workflow;
+the workflow creates it after successful checks.
 
 Because default branch `beta` deliberately contains no patched release
 workflow, GitHub may not show the "Run workflow" button for this
